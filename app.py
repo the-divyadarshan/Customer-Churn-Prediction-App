@@ -2,49 +2,86 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load model and columns
+# Load model and model columns
 model = joblib.load("churn_model.pkl")
 model_columns = joblib.load("model_columns.pkl")
 
 st.set_page_config(page_title="Customer Churn Prediction", page_icon="📉", layout="centered")
 
 st.title("📉 Customer Churn Prediction App")
-st.write("Fill the customer details below and click Predict to know if the customer will churn.")
+st.write("Enter a few customer details and predict whether the customer is likely to churn or stay.")
 
-st.sidebar.header("Enter Customer Details")
+st.markdown("---")
 
-# Sidebar Inputs
-gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
-SeniorCitizen = st.sidebar.selectbox("Senior Citizen", [0, 1])
-Partner = st.sidebar.selectbox("Partner", ["Yes", "No"])
-Dependents = st.sidebar.selectbox("Dependents", ["Yes", "No"])
-tenure = st.sidebar.slider("Tenure (Months)", 0, 72, 12)
+# =========================
+# BASIC USER FRIENDLY INPUTS
+# =========================
+st.subheader("🧾 Basic Customer Details")
 
-PhoneService = st.sidebar.selectbox("Phone Service", ["Yes", "No"])
-MultipleLines = st.sidebar.selectbox("Multiple Lines", ["Yes", "No", "No phone service"])
+tenure = st.slider("Tenure (Months)", 0, 72, 12)
 
-InternetService = st.sidebar.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-OnlineSecurity = st.sidebar.selectbox("Online Security", ["Yes", "No", "No internet service"])
-OnlineBackup = st.sidebar.selectbox("Online Backup", ["Yes", "No", "No internet service"])
-DeviceProtection = st.sidebar.selectbox("Device Protection", ["Yes", "No", "No internet service"])
-TechSupport = st.sidebar.selectbox("Tech Support", ["Yes", "No", "No internet service"])
-StreamingTV = st.sidebar.selectbox("Streaming TV", ["Yes", "No", "No internet service"])
-StreamingMovies = st.sidebar.selectbox("Streaming Movies", ["Yes", "No", "No internet service"])
+Contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
 
-Contract = st.sidebar.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
-PaperlessBilling = st.sidebar.selectbox("Paperless Billing", ["Yes", "No"])
+MonthlyCharges = st.number_input("Monthly Charges (₹)", min_value=0.0, max_value=200.0, value=70.0)
 
-PaymentMethod = st.sidebar.selectbox(
+InternetService = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
+
+PaymentMethod = st.selectbox(
     "Payment Method",
     ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"]
 )
 
-MonthlyCharges = st.sidebar.number_input("Monthly Charges", min_value=0.0, max_value=200.0, value=70.0)
+TechSupport = st.selectbox("Tech Support", ["Yes", "No", "No internet service"])
 
-# TotalCharges calculation
+OnlineSecurity = st.selectbox("Online Security", ["Yes", "No", "No internet service"])
+
+PaperlessBilling = st.selectbox("Paperless Billing", ["Yes", "No"])
+
 TotalCharges = MonthlyCharges * tenure
 
-# Create input dataframe
+st.markdown("---")
+
+# =========================
+# ADVANCED OPTIONS (HIDDEN)
+# =========================
+show_advanced = st.checkbox("⚙ Show Advanced Options (Optional)")
+
+if show_advanced:
+    st.subheader("⚙ Advanced Customer Details")
+
+    gender = st.selectbox("Gender", ["Male", "Female"])
+    SeniorCitizen = st.selectbox("Senior Citizen", [0, 1])
+    Partner = st.selectbox("Partner", ["Yes", "No"])
+    Dependents = st.selectbox("Dependents", ["Yes", "No"])
+
+    PhoneService = st.selectbox("Phone Service", ["Yes", "No"])
+    MultipleLines = st.selectbox("Multiple Lines", ["Yes", "No", "No phone service"])
+
+    OnlineBackup = st.selectbox("Online Backup", ["Yes", "No", "No internet service"])
+    DeviceProtection = st.selectbox("Device Protection", ["Yes", "No", "No internet service"])
+
+    StreamingTV = st.selectbox("Streaming TV", ["Yes", "No", "No internet service"])
+    StreamingMovies = st.selectbox("Streaming Movies", ["Yes", "No", "No internet service"])
+
+else:
+    # Default values if advanced options not selected
+    gender = "Male"
+    SeniorCitizen = 0
+    Partner = "No"
+    Dependents = "No"
+
+    PhoneService = "Yes"
+    MultipleLines = "No"
+
+    OnlineBackup = "No"
+    DeviceProtection = "No"
+
+    StreamingTV = "No"
+    StreamingMovies = "No"
+
+# =========================
+# CREATE INPUT DATAFRAME
+# =========================
 input_data = pd.DataFrame([{
     "gender": gender,
     "SeniorCitizen": SeniorCitizen,
@@ -70,7 +107,9 @@ input_data = pd.DataFrame([{
 st.subheader("📌 Customer Input Summary")
 st.dataframe(input_data)
 
-# Convert input data into dummy variables
+# =========================
+# ENCODING INPUT DATA
+# =========================
 input_encoded = pd.get_dummies(input_data)
 
 # Add missing columns
@@ -78,21 +117,40 @@ for col in model_columns:
     if col not in input_encoded.columns:
         input_encoded[col] = 0
 
-# Ensure same column order
+# Ensure correct column order
 input_encoded = input_encoded[model_columns]
 
-# Prediction
-if st.button("Predict Churn"):
+# =========================
+# PREDICTION
+# =========================
+if st.button("🔮 Predict Churn"):
     prediction = model.predict(input_encoded)[0]
     probability = model.predict_proba(input_encoded)[0][1]
 
+    st.markdown("---")
     st.subheader("📊 Prediction Result")
+
+    churn_percentage = probability * 100
+
+    # Risk Category
+    if churn_percentage < 35:
+        risk_level = "LOW RISK 🟢"
+    elif churn_percentage < 70:
+        risk_level = "MEDIUM RISK 🟠"
+    else:
+        risk_level = "HIGH RISK 🔴"
+
+    st.write(f"📌 **Churn Probability:** {churn_percentage:.2f}%")
+    st.write(f"⚠ **Risk Level:** {risk_level}")
+
+    st.progress(probability)
 
     if prediction == 1:
         st.error("⚠ Customer is likely to CHURN (Leave the company)")
-        st.write(f"📌 Churn Probability: **{probability*100:.2f}%**")
-        st.warning("💡 Suggestion: Give discount / better plan / customer support to retain.")
+        st.warning("💡 Suggestion: Offer discounts, better plan, or customer support to retain this customer.")
     else:
         st.success("✅ Customer is likely to STAY with the company")
-        st.write(f"📌 Churn Probability: **{probability*100:.2f}%**")
-        st.info("💡 Suggestion: Maintain service quality and offer loyalty rewards.")
+        st.info("💡 Suggestion: Maintain good service quality and offer loyalty rewards.")
+
+st.markdown("---")
+st.caption("Made with ❤️ using Streamlit | Customer Churn Prediction ML App")
